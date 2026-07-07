@@ -6,15 +6,24 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next") ?? "/app";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? requestUrl.origin;
+  const redirectOrigin = new URL(siteUrl).origin;
 
   if (!code) {
-    return NextResponse.redirect(new URL("/app", requestUrl.origin));
+    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
   }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -35,7 +44,12 @@ export async function GET(request: Request) {
     }
   );
 
-  await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  return NextResponse.redirect(new URL(next, requestUrl.origin));
+  if (error) {
+    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
+  }
+
+  const safeNext = next.startsWith("/") ? next : "/app";
+  return NextResponse.redirect(new URL(safeNext, redirectOrigin));
 }

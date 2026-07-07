@@ -98,7 +98,7 @@ npm install
 `.env.local.example` を参考に `.env.local` を作成してください。
 
 ```env
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=https://tsumugu-ai-silk.vercel.app
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxx
 OPENAI_MODEL=gpt-4.1-mini
 
@@ -122,6 +122,7 @@ ADMIN_EMAILS=you@example.com
 Googleログインを使う場合は、SupabaseのAuthentication ProvidersでGoogleを有効化し、リダイレクトURLに以下を追加します。
 
 ```text
+https://tsumugu-ai-silk.vercel.app/auth/callback
 http://localhost:3000/auth/callback
 ```
 
