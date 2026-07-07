@@ -63,7 +63,7 @@ export async function POST(request: Request) {
           plan: isActive ? "pro" : "free"
         }).eq("id", profile.id);
 
-        await admin.from("renote_subscriptions").upsert({
+        await admin.from("tsumugu_subscriptions").upsert({
           user_id: profile.id,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscriptionId,

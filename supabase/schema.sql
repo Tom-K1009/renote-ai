@@ -11,7 +11,7 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.renote_histories (
+create table if not exists public.tsumugu_histories (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   mode text not null default '整える',
@@ -27,15 +27,15 @@ create table if not exists public.renote_histories (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.renote_favorites (
+create table if not exists public.tsumugu_favorites (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  history_id uuid not null references public.renote_histories(id) on delete cascade,
+  history_id uuid not null references public.tsumugu_histories(id) on delete cascade,
   created_at timestamptz not null default now(),
   unique (user_id, history_id)
 );
 
-create table if not exists public.renote_settings (
+create table if not exists public.tsumugu_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   default_purpose text not null default 'レポート',
   default_writing_style text not null default 'です・ます調',
@@ -46,7 +46,7 @@ create table if not exists public.renote_settings (
   updated_at timestamptz not null default now()
 );
 
-create table if not exists public.renote_usage (
+create table if not exists public.tsumugu_usage (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   used_on date not null default current_date,
@@ -56,7 +56,7 @@ create table if not exists public.renote_usage (
   unique (user_id, used_on)
 );
 
-create table if not exists public.renote_subscriptions (
+create table if not exists public.tsumugu_subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   stripe_customer_id text,
@@ -68,11 +68,11 @@ create table if not exists public.renote_subscriptions (
 );
 
 alter table public.profiles enable row level security;
-alter table public.renote_histories enable row level security;
-alter table public.renote_favorites enable row level security;
-alter table public.renote_settings enable row level security;
-alter table public.renote_usage enable row level security;
-alter table public.renote_subscriptions enable row level security;
+alter table public.tsumugu_histories enable row level security;
+alter table public.tsumugu_favorites enable row level security;
+alter table public.tsumugu_settings enable row level security;
+alter table public.tsumugu_usage enable row level security;
+alter table public.tsumugu_subscriptions enable row level security;
 
 create policy "Profiles are readable by owner" on public.profiles
   for select using (auth.uid() = id);
@@ -80,22 +80,22 @@ create policy "Profiles are readable by owner" on public.profiles
 create policy "Profiles are updatable by owner" on public.profiles
   for update using (auth.uid() = id);
 
-create policy "Histories are owned by user" on public.renote_histories
+create policy "Histories are owned by user" on public.tsumugu_histories
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Favorites are owned by user" on public.renote_favorites
+create policy "Favorites are owned by user" on public.tsumugu_favorites
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Settings are owned by user" on public.renote_settings
+create policy "Settings are owned by user" on public.tsumugu_settings
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-create policy "Usage is readable by owner" on public.renote_usage
+create policy "Usage is readable by owner" on public.tsumugu_usage
   for select using (auth.uid() = user_id);
 
-create policy "Subscriptions are readable by owner" on public.renote_subscriptions
+create policy "Subscriptions are readable by owner" on public.tsumugu_subscriptions
   for select using (auth.uid() = user_id);
 
-create or replace function public.increment_renote_usage(
+create or replace function public.increment_tsumugu_usage(
   target_user_id uuid,
   target_day date
 )
@@ -105,11 +105,11 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.renote_usage (user_id, used_on, count)
+  insert into public.tsumugu_usage (user_id, used_on, count)
   values (target_user_id, target_day, 1)
   on conflict (user_id, used_on)
   do update set
-    count = public.renote_usage.count + 1,
+    count = public.tsumugu_usage.count + 1,
     updated_at = now();
 end;
 $$;

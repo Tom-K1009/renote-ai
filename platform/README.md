@@ -1,4 +1,4 @@
-# Renote AI Platform Roadmap
+# TSUMUGU Platform Roadmap
 
 This folder contains implementation notes and starter files for Phase4 surfaces.
 
@@ -11,7 +11,7 @@ This folder contains implementation notes and starter files for Phase4 surfaces.
 
 ## Chrome Extension
 
-- Use the context menu entry "Renote AIで整形".
+- Use the context menu entry "TSUMUGUで整形".
 - Send selected text to the web app or API.
 - Reuse Supabase session through a token handoff flow.
 

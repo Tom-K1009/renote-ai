@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Renote AI",
+  "name": "TSUMUGU",
   "version": "0.1.0",
-  "description": "選択した文章をRenote AIで整えます。",
+  "description": "選択した文章をTSUMUGUで整えます。",
   "permissions": ["contextMenus", "activeTab", "scripting"],
   "background": {
     "service_worker": "service-worker.js"
   },
   "action": {
-    "default_title": "Renote AI"
+    "default_title": "TSUMUGU"
   }
 }

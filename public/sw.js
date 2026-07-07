@@ -1,4 +1,4 @@
-const CACHE_NAME = "renote-ai-v3";
+const CACHE_NAME = "tsumugu-v3";
 const APP_SHELL = ["/", "/app", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

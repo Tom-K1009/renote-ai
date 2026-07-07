@@ -20,7 +20,7 @@ export default function BlogPage() {
     <main className="min-h-screen bg-zinc-50 px-4 py-8 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between">
-          <Link href="/" className="text-xl font-semibold">Renote AI</Link>
+          <Link href="/" className="text-xl font-semibold">TSUMUGU</Link>
           <Link href="/app" className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-zinc-950">アプリを開く</Link>
         </header>
         <section className="py-20">
@@ -37,6 +37,10 @@ export default function BlogPage() {
             ))}
           </div>
         </section>
+        <footer className="pb-8 text-xs text-zinc-500">
+          <p>TSUMUGU is a 0→1 Lab product.</p>
+          <p className="mt-1">© 2026 0→1 Lab. All rights reserved.</p>
+        </footer>
       </div>
     </main>
   );

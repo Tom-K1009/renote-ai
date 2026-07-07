@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     );
   }
 
-  console.info("Renote AI feedback", {
+  console.info("TSUMUGU feedback", {
     name: typeof body.name === "string" ? body.name : "",
     email: typeof body.email === "string" ? body.email : "",
     message

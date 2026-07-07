@@ -80,7 +80,7 @@ export type ImprovementReport = {
   description: string;
 };
 
-export type RenoteScore = {
+export type TsumuguScore = {
   total: number;
   naturalness: number;
   readability: number;
@@ -100,7 +100,7 @@ export type UsageStatus = {
 export type RefineResponse = {
   result?: string;
   improvements?: ImprovementReport[];
-  score?: RenoteScore | null;
+  score?: TsumuguScore | null;
   usage?: UsageStatus;
   error?: string;
 };

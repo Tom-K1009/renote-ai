@@ -12,7 +12,7 @@ import {
   type PolishAdjustment,
   type Purpose,
   type RefineRequest,
-  type RenoteScore,
+  type TsumuguScore,
   type RewriteDirection,
   type UsageStatus,
   type WritingStyle
@@ -44,7 +44,7 @@ function resolveTargetLength(mode: AssistantMode, value: unknown) {
   return Math.min(4000, Math.max(40, Math.round(value)));
 }
 
-function normalizeScore(score: Partial<RenoteScore> | null | undefined): RenoteScore {
+function normalizeScore(score: Partial<TsumuguScore> | null | undefined): TsumuguScore {
   const safe = (value: unknown, fallback: number) =>
     typeof value === "number" && Number.isFinite(value)
       ? Math.min(100, Math.max(0, Math.round(value)))
@@ -81,7 +81,7 @@ function parseModelOutput(raw: string, includeScore: boolean) {
     const parsed = JSON.parse(raw) as {
       result?: unknown;
       improvements?: unknown;
-      score?: Partial<RenoteScore>;
+      score?: Partial<TsumuguScore>;
     };
 
     const improvements = Array.isArray(parsed.improvements)
@@ -120,8 +120,8 @@ function parseModelOutput(raw: string, includeScore: boolean) {
 
 function buildPrompt(payload: RefineRequest, includeScore: boolean) {
   const common = [
-    "あなたはRenote AIの日本語ライティングアシスタントです。",
-    "Renote AIのブランドコンセプトは「あなたの言葉を、そのまま、もっと伝わる文章へ。」です。",
+    "あなたはTSUMUGUの日本語ライティングアシスタントです。",
+    "TSUMUGUのブランドコンセプトは「あなたの言葉を、そのまま、もっと伝わる文章へ。」です。",
     "AIが主役ではなく、ユーザーの言葉が主役になるように支援してください。",
     "",
     `用途: ${payload.purpose}`,
@@ -254,7 +254,7 @@ async function getUsageStatus(accessToken: string | null): Promise<{
   const plan = profile?.plan === "pro" ? "pro" : "free";
   const today = new Date().toISOString().slice(0, 10);
   const { data: usageRow } = await adminClient
-    .from("renote_usage")
+    .from("tsumugu_usage")
     .select("count")
     .eq("user_id", user.id)
     .eq("used_on", today)
@@ -277,7 +277,7 @@ async function persistResult(params: {
   payload: RefineRequest;
   result: string;
   improvements: ImprovementReport[];
-  score: RenoteScore | null;
+  score: TsumuguScore | null;
 }) {
   if (!params.userId) return;
 
@@ -286,12 +286,12 @@ async function persistResult(params: {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  await adminClient.rpc("increment_renote_usage", {
+  await adminClient.rpc("increment_tsumugu_usage", {
     target_user_id: params.userId,
     target_day: today
   });
 
-  await adminClient.from("renote_histories").insert({
+  await adminClient.from("tsumugu_histories").insert({
     user_id: params.userId,
     mode: params.payload.mode,
     source: params.text,

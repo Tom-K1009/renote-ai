@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <rect width="128" height="128" rx="28" fill="#0f172a"/>
-  <path d="M34 86V34h19c13 0 22 7 22 19 0 8-4 14-11 17l18 16H66L51 72h-4v14H34Zm13-25h6c6 0 10-3 10-8s-4-8-10-8h-6v16Z" fill="#fff"/>
-  <path d="M78 38h20v10H78V38Zm0 22h20v10H78V60Zm0 22h20v10H78V82Z" fill="#7dd3fc"/>
+  <circle cx="64" cy="44" r="16" fill="#7dd3fc"/>
+  <path d="M34 86c9-18 51-18 60 0" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+  <text x="64" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#fff">TSUMUGU</text>
 </svg>

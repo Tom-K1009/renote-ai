@@ -27,7 +27,7 @@ import {
   type PolishAdjustment,
   type Purpose,
   type RefineResponse,
-  type RenoteScore,
+  type TsumuguScore,
   type RewriteDirection,
   type UsageStatus,
   type WritingStyle
@@ -108,7 +108,7 @@ const modeCards: {
   }
 ];
 
-const scoreLabels: Array<[keyof RenoteScore, string]> = [
+const scoreLabels: Array<[keyof TsumuguScore, string]> = [
   ["naturalness", "自然さ"],
   ["readability", "読みやすさ"],
   ["logic", "論理性"],
@@ -130,9 +130,9 @@ const exampleTexts: Partial<Record<Purpose, string>> = {
     "新しい制作物を公開しました。\nまだ小さいけど、自分なりにかなりこだわりました。\n見てもらえたら嬉しいです。"
 };
 
-const historyKey = "renote-ai-history";
-const settingsKey = "renote-ai-settings";
-const onboardingKey = "renote-ai-onboarding-seen";
+const historyKey = "tsumugu-history";
+const settingsKey = "tsumugu-settings";
+const onboardingKey = "tsumugu-onboarding-seen";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
@@ -238,7 +238,7 @@ function WelcomeModal({
     >
       <section className="w-full max-w-3xl rounded-[12px] border border-white/80 bg-white p-5 shadow-[0_28px_120px_rgba(24,24,27,0.22)] dark:border-white/10 dark:bg-zinc-950 sm:p-8">
         <p className="text-sm font-medium text-sky-600 dark:text-sky-300">
-          ようこそ Renote AIへ
+          ようこそ TSUMUGUへ
         </p>
         <h2 id="welcome-title" className="mt-3 text-3xl font-semibold tracking-normal">
           今日は何をしたいですか？
@@ -303,7 +303,7 @@ function OutputSkeleton() {
   );
 }
 
-export function RenoteWorkspace() {
+export function TsumuguWorkspace() {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -326,7 +326,7 @@ export function RenoteWorkspace() {
   const [highQuality, setHighQuality] = useState(false);
   const [result, setResult] = useState("");
   const [improvements, setImprovements] = useState<ImprovementReport[]>([]);
-  const [score, setScore] = useState<RenoteScore | null>(null);
+  const [score, setScore] = useState<TsumuguScore | null>(null);
   const [consultQuestion, setConsultQuestion] = useState("この文章は失礼？");
   const [consultAnswer, setConsultAnswer] = useState("");
   const [error, setError] = useState<ErrorState | null>(null);
@@ -375,7 +375,7 @@ export function RenoteWorkspace() {
     setPlan(profile?.plan === "pro" ? "pro" : "free");
 
     const { data: cloudSettings } = await supabase
-      .from("renote_settings")
+      .from("tsumugu_settings")
       .select("*")
       .eq("user_id", currentUser.id)
       .maybeSingle();
@@ -401,8 +401,8 @@ export function RenoteWorkspace() {
     }
 
     const { data: histories } = await supabase
-      .from("renote_histories")
-      .select("*, renote_favorites(id)")
+      .from("tsumugu_histories")
+      .select("*, tsumugu_favorites(id)")
       .order("created_at", { ascending: false })
       .limit(isPro ? 100 : 30);
 
@@ -418,8 +418,8 @@ export function RenoteWorkspace() {
           writingStyle: item.writing_style as WritingStyle,
           targetLength: item.target_length,
           favorite:
-            Array.isArray(item.renote_favorites) &&
-            item.renote_favorites.length > 0,
+            Array.isArray(item.tsumugu_favorites) &&
+            item.tsumugu_favorites.length > 0,
           createdAt: item.created_at
         }))
       );
@@ -477,7 +477,7 @@ export function RenoteWorkspace() {
     setSettings(nextSettings);
     if (!supabase || !user) return;
 
-    await supabase.from("renote_settings").upsert({
+    await supabase.from("tsumugu_settings").upsert({
       user_id: user.id,
       default_purpose: nextSettings.defaultPurpose,
       default_writing_style: nextSettings.defaultWritingStyle,
@@ -635,13 +635,13 @@ export function RenoteWorkspace() {
 
     if (item.favorite) {
       await supabase
-        .from("renote_favorites")
+        .from("tsumugu_favorites")
         .delete()
         .eq("history_id", item.cloudId)
         .eq("user_id", user.id);
     } else {
       await supabase
-        .from("renote_favorites")
+        .from("tsumugu_favorites")
         .insert({ user_id: user.id, history_id: item.cloudId });
     }
 
@@ -650,7 +650,7 @@ export function RenoteWorkspace() {
 
   async function deleteHistory(item: HistoryItem) {
     if (supabase && user && item.cloudId) {
-      await supabase.from("renote_histories").delete().eq("id", item.cloudId);
+      await supabase.from("tsumugu_histories").delete().eq("id", item.cloudId);
       await loadCloudData(user);
       return;
     }
@@ -724,18 +724,18 @@ export function RenoteWorkspace() {
   function downloadMarkdown() {
     if (!result) return;
     downloadBlob(
-      `# Renote AI Output\n\n${result}\n`,
-      "renote-ai-output.md",
+      `# TSUMUGU Output\n\n${result}\n`,
+      "tsumugu-output.md",
       "text/markdown;charset=utf-8"
     );
   }
 
   function downloadWord() {
     if (!result) return;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Renote AI</title></head><body><h1>Renote AI</h1><p>${escapeHtml(
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>TSUMUGU</title></head><body><h1>TSUMUGU</h1><p>${escapeHtml(
       result
     ).replaceAll("\n", "<br>")}</p></body></html>`;
-    downloadBlob(html, "renote-ai-output.doc", "application/msword;charset=utf-8");
+    downloadBlob(html, "tsumugu-output.doc", "application/msword;charset=utf-8");
   }
 
   function downloadPdf() {
@@ -754,7 +754,7 @@ export function RenoteWorkspace() {
       <html lang="ja">
         <head>
           <meta charset="utf-8" />
-          <title>Renote AI</title>
+          <title>TSUMUGU</title>
           <style>
             body { font-family: "Yu Gothic", Meiryo, sans-serif; line-height: 1.8; padding: 40px; color: #111; }
             h1 { font-size: 20px; margin-bottom: 24px; }
@@ -762,7 +762,7 @@ export function RenoteWorkspace() {
           </style>
         </head>
         <body>
-          <h1>Renote AI</h1>
+          <h1>TSUMUGU</h1>
           <pre>${escapeHtml(result)}</pre>
           <script>window.onload = () => { window.print(); };</script>
         </body>
@@ -805,7 +805,7 @@ export function RenoteWorkspace() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-3 py-4 sm:gap-8 sm:px-6 sm:py-5 lg:px-8">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/" className="group rounded-[8px] focus:outline-none focus-visible:ring-4 focus-visible:ring-zinc-300">
-            <p className="text-xl font-semibold tracking-normal">Renote AI</p>
+            <p className="text-xl font-semibold tracking-normal">TSUMUGU</p>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               あなたの言葉を、そのまま、もっと伝わる文章へ。
             </p>
@@ -853,7 +853,7 @@ export function RenoteWorkspace() {
         <section className="space-y-5 rounded-[10px] border border-white/80 bg-white/76 p-5 shadow-[0_20px_80px_rgba(24,24,27,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/10 sm:p-8">
           <div>
             <p className="text-sm font-medium text-sky-600 dark:text-sky-300">
-              Renote AIは、自分の文章を育てるサービスです。
+              TSUMUGUは、自分の文章を育てるサービスです。
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal sm:text-5xl">
               今日は何をしたいですか？
@@ -894,7 +894,7 @@ export function RenoteWorkspace() {
           </div>
           {!canUseMode ? (
             <div className="rounded-[10px] border border-sky-100 bg-sky-50 p-4 text-sm leading-7 text-sky-950 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
-              「作成する」、文字数指定、AI相談、Renote Score、高品質モードはProプランで利用できます。
+              「作成する」、文字数指定、AI相談、TSUMUGU Score、高品質モードはProプランで利用できます。
               <button
                 type="button"
                 onClick={() => void startCheckout()}
@@ -1194,7 +1194,7 @@ export function RenoteWorkspace() {
 
             {score && isPro ? (
               <section className="rounded-[10px] border border-white/80 bg-white/76 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/10 sm:p-6">
-                <h2 className="mb-3 text-sm font-semibold">Renote Score</h2>
+                <h2 className="mb-3 text-sm font-semibold">TSUMUGU Score</h2>
                 <div className="grid gap-3 md:grid-cols-[0.5fr_1fr]">
                   <div className="rounded-[8px] bg-zinc-950 p-5 text-white dark:bg-white dark:text-zinc-950">
                     <p className="text-xs opacity-70">総合スコア</p>

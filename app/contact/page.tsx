@@ -5,7 +5,7 @@ export default function ContactPage() {
   return (
     <SimplePage
       title="Contact"
-      description="Renote AIへのご意見、不具合報告、導入相談はこちらからお送りください。"
+      description="TSUMUGUへのご意見、不具合報告、0→1 Labへのご相談はこちらからお送りください。"
     >
       <FeedbackForm />
     </SimplePage>

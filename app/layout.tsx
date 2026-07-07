@@ -3,31 +3,40 @@ import { PwaRegister } from "./components/PwaRegister";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const brandDescription =
+  "TSUMUGUは、AIが文章を代わりに書くサービスではありません。ユーザー自身の言葉を大切にしながら、自然で伝わりやすい文章へ整え、文章を書く力を育てるAIライティングアシスタントです。";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Renote AI",
-    template: "%s | Renote AI"
+    default: "TSUMUGU",
+    template: "%s | TSUMUGU"
   },
-  description:
-    "あなたの言葉を、そのまま、もっと伝わる文章へ。自分の文章を育てるAIライティングアシスタント",
+  description: brandDescription,
   alternates: {
     canonical: "/"
   },
   openGraph: {
-    title: "Renote AI",
-    description:
-      "あなたの言葉を、そのまま、もっと伝わる文章へ。AIに書かせるのではなく、自分の文章を育てるサービス。",
+    title: "TSUMUGU | あなたの言葉を、そのまま、もっと伝わる文章へ。",
+    description: brandDescription,
     url: siteUrl,
-    siteName: "Renote AI",
+    siteName: "TSUMUGU",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "TSUMUGU"
+      }
+    ],
     locale: "ja_JP",
     type: "website"
   },
   twitter: {
     card: "summary_large_image",
-    title: "Renote AI",
-    description: "あなたの言葉を、そのまま、もっと伝わる文章へ。"
+    title: "TSUMUGU | あなたの言葉を、そのまま、もっと伝わる文章へ。",
+    description: brandDescription,
+    images: ["/opengraph-image"]
   },
   manifest: "/manifest.webmanifest"
 };
@@ -40,7 +49,8 @@ export default function RootLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Renote AI",
+    name: "TSUMUGU",
+    description: brandDescription,
     applicationCategory: "ProductivityApplication",
     operatingSystem: "Web",
     offers: {

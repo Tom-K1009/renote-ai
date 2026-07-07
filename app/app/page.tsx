@@ -1,5 +1,5 @@
-import { RenoteWorkspace } from "../components/RenoteWorkspace";
+import { TsumuguWorkspace } from "../components/TsumuguWorkspace";
 
 export default function AppPage() {
-  return <RenoteWorkspace />;
+  return <TsumuguWorkspace />;
 }

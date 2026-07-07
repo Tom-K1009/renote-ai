@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const freeBenefits = ["整える", "書き直す", "履歴保存", "コピー・Markdown・Word・PDF出力"];
-const proBenefits = ["作成する", "文字数指定", "AI相談", "Renote Score", "高品質モード", "利用回数無制限"];
+const proBenefits = ["作成する", "文字数指定", "AI相談", "TSUMUGU Score", "高品質モード", "利用回数無制限"];
 
 export default function PricingPage() {
   return (
@@ -9,7 +9,7 @@ export default function PricingPage() {
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between">
           <Link href="/" className="text-xl font-semibold">
-            Renote AI
+            TSUMUGU
           </Link>
           <Link href="/app" className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950">
             アプリを開く
@@ -22,7 +22,7 @@ export default function PricingPage() {
             まずは無料で。毎日使うならProへ。
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-9 text-zinc-600 dark:text-zinc-300">
-            Renote AIは、文章を書く人が気軽に使い始められるよう無料プランを用意しています。
+            TSUMUGUは、文章を書く人が気軽に使い始められるよう無料プランを用意しています。
           </p>
 
           <div className="mt-10 grid gap-4 md:grid-cols-2">
@@ -61,6 +61,10 @@ export default function PricingPage() {
             </article>
           </div>
         </section>
+        <footer className="pb-8 text-xs text-zinc-500">
+          <p>TSUMUGU is a 0→1 Lab product.</p>
+          <p className="mt-1">© 2026 0→1 Lab. All rights reserved.</p>
+        </footer>
       </div>
     </main>
   );

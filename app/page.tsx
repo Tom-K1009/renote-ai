@@ -20,7 +20,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <header className="mx-auto flex max-w-7xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
         <Link href="/" className="text-xl font-semibold">
-          Renote AI
+          TSUMUGU
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-zinc-600 dark:text-zinc-300 md:flex">
           <Link href="/about">About</Link>
@@ -46,7 +46,7 @@ export default function HomePage() {
           もっと伝わる文章へ。
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-9 text-zinc-600 dark:text-zinc-300">
-          Renote AIは、文章を書く主体をユーザーに置いたAIライティングアシスタントです。AIは代筆者ではなく、あなたの言葉を自然に届く形へ整える伴走者です。
+          TSUMUGUは、AIが文章を代わりに書くサービスではありません。ユーザー自身の言葉を大切にしながら、自然で伝わりやすい文章へ整え、文章を書く力を育てるAIライティングアシスタントです。
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
@@ -77,6 +77,11 @@ export default function HomePage() {
           </article>
         ))}
       </section>
+
+      <footer className="mx-auto flex max-w-7xl flex-col gap-2 px-4 pb-8 text-xs text-zinc-500 sm:px-6 lg:px-8">
+        <p>TSUMUGU is a 0→1 Lab product.</p>
+        <p>© 2026 0→1 Lab. All rights reserved.</p>
+      </footer>
     </main>
   );
 }

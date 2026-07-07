@@ -14,7 +14,7 @@ export function SimplePage({
     <main className="min-h-screen bg-zinc-50 text-zinc-950 dark:bg-zinc-950 dark:text-zinc-50">
       <header className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-5 sm:px-6">
         <Link href="/" className="text-xl font-semibold">
-          Renote AI
+          TSUMUGU
         </Link>
         <nav className="hidden items-center gap-5 text-sm text-zinc-600 dark:text-zinc-300 sm:flex">
           <Link href="/about">About</Link>
@@ -30,7 +30,7 @@ export function SimplePage({
       </header>
       <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
         <p className="mb-4 text-sm font-medium text-sky-600 dark:text-sky-300">
-          Renote AI
+          TSUMUGU
         </p>
         <h1 className="text-4xl font-semibold tracking-normal sm:text-5xl">
           {title}
@@ -41,6 +41,10 @@ export function SimplePage({
         <div className="mt-10 max-w-3xl space-y-5 rounded-[10px] border border-zinc-200 bg-white/80 p-6 text-base leading-8 text-zinc-700 shadow-sm dark:border-zinc-800 dark:bg-white/5 dark:text-zinc-200">
           {children}
         </div>
+        <footer className="mt-12 text-xs text-zinc-500">
+          <p>TSUMUGU is a 0→1 Lab product.</p>
+          <p className="mt-1">© 2026 0→1 Lab. All rights reserved.</p>
+        </footer>
       </section>
     </main>
   );
