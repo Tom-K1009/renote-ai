@@ -4,11 +4,21 @@ import {
   createSupabaseAdminClient,
   createSupabaseUserClient
 } from "../../../lib/supabase/server";
+import {
+  billingPlans,
+  getPriceIdForPlan,
+  planConfigs,
+  type BillingPlan
+} from "../../../lib/plans";
 
 export async function POST(request: Request) {
   const stripe = createStripeClient();
   const admin = createSupabaseAdminClient();
-  const priceId = process.env.STRIPE_PRO_PRICE_ID;
+  const body = (await request.json().catch(() => ({}))) as { plan?: unknown };
+  const requestedPlan: BillingPlan = billingPlans.includes(body.plan as BillingPlan)
+    ? (body.plan as BillingPlan)
+    : "pro";
+  const priceId = getPriceIdForPlan(requestedPlan);
 
   if (!stripe || !admin || !priceId) {
     return NextResponse.json(
@@ -77,9 +87,20 @@ export async function POST(request: Request) {
     success_url: `${origin}/app?checkout=success`,
     cancel_url: `${origin}/pricing?checkout=cancelled`,
     metadata: {
-      supabaseUserId: user.id
+      supabaseUserId: user.id,
+      plan: requestedPlan
+    },
+    subscription_data: {
+      metadata: {
+        supabaseUserId: user.id,
+        plan: requestedPlan
+      }
     }
   });
 
-  return NextResponse.json({ url: session.url });
+  return NextResponse.json({
+    url: session.url,
+    plan: requestedPlan,
+    planName: planConfigs[requestedPlan].name
+  });
 }

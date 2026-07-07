@@ -4,36 +4,43 @@ import {
   createSupabaseAdminClient,
   createSupabaseUserClient
 } from "../../lib/supabase/server";
+import { getPlanConfig, normalizePlan } from "../../lib/plans";
 
-async function isProUser(request: Request) {
+async function canUseConsult(request: Request) {
   const token =
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-  if (!token) return false;
+  if (!token) return { ok: false, userId: null, plan: "guest" };
 
   const userClient = createSupabaseUserClient(token);
   const adminClient = createSupabaseAdminClient();
-  if (!userClient || !adminClient) return false;
+  if (!userClient || !adminClient) return { ok: false, userId: null, plan: "guest" };
 
   const {
     data: { user }
   } = await userClient.auth.getUser();
 
-  if (!user) return false;
+  if (!user) return { ok: false, userId: null, plan: "guest" };
 
   const { data } = await adminClient
     .from("profiles")
-    .select("plan")
+    .select("plan, is_suspended")
     .eq("id", user.id)
     .maybeSingle();
 
-  return data?.plan === "pro";
+  const plan = normalizePlan(data?.plan);
+  return {
+    ok: Boolean(!data?.is_suspended && getPlanConfig(plan).canConsult),
+    userId: user.id,
+    plan
+  };
 }
 
 export async function POST(request: Request) {
   try {
-    if (!(await isProUser(request))) {
+    const access = await canUseConsult(request);
+    if (!access.ok) {
       return NextResponse.json(
-        { error: "AI相談はProプランで利用できます。" },
+        { error: "AI相談はStudent以上のプランで利用できます。" },
         { status: 403 }
       );
     }

@@ -48,6 +48,9 @@ export default function HomePage() {
         <p className="mt-6 max-w-2xl text-lg leading-9 text-zinc-600 dark:text-zinc-300">
           TSUMUGUは、AIが文章を代わりに書くサービスではありません。ユーザー自身の言葉を大切にしながら、自然で伝わりやすい文章へ整え、文章を書く力を育てるAIライティングアシスタントです。
         </p>
+        <p className="mt-4 max-w-2xl rounded-[10px] border border-sky-100 bg-sky-50 px-4 py-3 text-sm leading-7 text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
+          TSUMUGUは現在β版です。いただいたフィードバックをもとに改善を続けています。
+        </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/app"
@@ -77,11 +80,6 @@ export default function HomePage() {
           </article>
         ))}
       </section>
-
-      <footer className="mx-auto flex max-w-7xl flex-col gap-2 px-4 pb-8 text-xs text-zinc-500 sm:px-6 lg:px-8">
-        <p>TSUMUGU is a 0→1 Lab product.</p>
-        <p>© 2026 0→1 Lab. All rights reserved.</p>
-      </footer>
     </main>
   );
 }

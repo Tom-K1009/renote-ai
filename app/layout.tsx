@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PwaRegister } from "./components/PwaRegister";
+import { BetaBadge, SiteFooter } from "./components/SiteFooter";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -63,7 +64,9 @@ export default function RootLayout({
   return (
     <html lang="ja" suppressHydrationWarning>
       <body>
+        <BetaBadge />
         {children}
+        <SiteFooter />
         <PwaRegister />
         <script
           type="application/ld+json"

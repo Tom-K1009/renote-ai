@@ -20,6 +20,7 @@ export function FeedbackForm() {
       body: JSON.stringify({
         name: formData.get("name"),
         email: formData.get("email"),
+        category: formData.get("category"),
         message: formData.get("message")
       })
     });
@@ -53,6 +54,20 @@ export function FeedbackForm() {
         />
       </label>
       <label className="grid gap-2 text-sm font-medium">
+        お問い合わせ種別
+        <select
+          name="category"
+          required
+          className="min-h-11 rounded-[8px] border border-zinc-200 bg-white px-3 dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <option value="不具合">不具合</option>
+          <option value="料金">料金</option>
+          <option value="解約">解約</option>
+          <option value="法務">法務</option>
+          <option value="その他">その他</option>
+        </select>
+      </label>
+      <label className="grid gap-2 text-sm font-medium">
         内容
         <textarea
           name="message"
@@ -70,7 +85,7 @@ export function FeedbackForm() {
       </button>
       {status === "sent" ? (
         <p className="text-sm font-medium text-sky-700 dark:text-sky-300">
-          送信しました。ありがとうございます。
+          お問い合わせありがとうございます。内容を確認し、必要に応じて返信します。
         </p>
       ) : null}
       {status === "error" ? (

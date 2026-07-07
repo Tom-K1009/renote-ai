@@ -53,14 +53,29 @@ Free:
 
 - 整える
 - 書き直す
+- 1日10回
+- 履歴10件
+- お気に入り10件
+
+Student:
+
+- 作成する
+- AI相談
+- TSUMUGU Score
+- 1日100回
+- 履歴・お気に入り無制限
 
 Pro:
 
-- 作成する
-- 文字数指定
-- AI相談
-- TSUMUGU Score
 - 高品質モード
+- 1日300回程度のソフトリミット
+- 文章力カルテ・週間レポートの土台
+
+Supporter β:
+
+- 0→1 LabとTSUMUGUを応援するプラン
+- β機能優先利用
+- 開発レポート、ロードマップ、機能投票の土台
 
 ## v1.0 RCで重視している体験
 
@@ -93,7 +108,11 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxx
+STRIPE_STUDENT_PRICE_ID=price_student_xxxxxxxxxxxxxxxx
 STRIPE_PRO_PRICE_ID=price_xxxxxxxxxxxxxxxx
+STRIPE_SUPPORTER_PRICE_ID=price_supporter_xxxxxxxxxxxxxxxx
+
+ADMIN_EMAILS=you@example.com
 ```
 
 ## Supabase
@@ -105,6 +124,28 @@ Googleログインを使う場合は、SupabaseのAuthentication ProvidersでGoo
 ```text
 http://localhost:3000/auth/callback
 ```
+
+## 運営管理
+
+管理画面:
+
+```text
+http://localhost:3000/admin
+```
+
+`ADMIN_EMAILS` に設定したメールアドレスでログインしたユーザーだけがアクセスできます。
+
+管理画面では、API利用回数、推定APIコスト、平均レスポンス時間、プラン別利用回数、上位利用ユーザー、異常アクセス検知、APIエラー件数、問い合わせ件数、Pricing閲覧数を確認できます。
+
+## API保護
+
+- Googleログイン必須
+- Free: 1日10回
+- Student: 1日100回
+- Pro / Supporter: 1日300回程度のソフトリミット
+- 短時間大量アクセスを制限
+- 推定トークン数と推定APIコストを保存
+- 異常利用時は自動停止できるスキーマを用意
 
 ## 起動
 

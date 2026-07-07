@@ -33,9 +33,10 @@ import {
   type WritingStyle
 } from "../lib/options";
 import { createSupabaseBrowserClient } from "../lib/supabase/browser";
+import { getPlanConfig, type BillingPlan } from "../lib/plans";
 
 type Theme = "light" | "dark";
-type Plan = "guest" | "free" | "pro";
+type Plan = "guest" | BillingPlan;
 
 type HistoryItem = {
   id: string;
@@ -80,7 +81,7 @@ const modeCards: {
   title: string;
   subtitle: string;
   description: string;
-  access: "free" | "pro";
+  access: "free" | "paid";
 }[] = [
   {
     mode: "整える",
@@ -104,7 +105,7 @@ const modeCards: {
     title: "作成する",
     subtitle: "メモから文章を作る",
     description: "メモや箇条書きから、レポート、メール、企画書、ブログなどを作成します。",
-    access: "pro"
+    access: "paid"
   }
 ];
 
@@ -195,13 +196,13 @@ function createErrorState(status: number, fallback: string): ErrorState {
     return {
       title: "本日の無料利用回数を使い切りました",
       message: fallback,
-      action: "明日もう一度試すか、Proプランをご検討ください。"
+      action: "StudentまたはProでさらに利用できます。料金比較から選択してください。"
     };
   }
 
   if (status === 403) {
     return {
-      title: "Proプランの機能です",
+      title: "有料プランの機能です",
       message: fallback,
       action: "整える・書き直すは無料で利用できます。"
     };
@@ -280,6 +281,8 @@ function WelcomeModal({
 }
 
 function ErrorCard({ error }: { error: ErrorState }) {
+  const limitReached = error.title === "本日の無料利用回数を使い切りました";
+
   return (
     <div
       role="alert"
@@ -288,6 +291,19 @@ function ErrorCard({ error }: { error: ErrorState }) {
       <p className="font-semibold">{error.title}</p>
       <p className="mt-2 leading-6">{error.message}</p>
       <p className="mt-2 text-red-700 dark:text-red-200">{error.action}</p>
+      {limitReached ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/pricing" className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-950 transition hover:bg-red-200 dark:bg-red-400/20 dark:text-red-50">
+            Student βを見る
+          </Link>
+          <Link href="/pricing" className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-950 transition hover:bg-red-200 dark:bg-red-400/20 dark:text-red-50">
+            Pro βを見る
+          </Link>
+          <Link href="/supporter" className="rounded-full bg-red-100 px-3 py-2 text-xs font-semibold text-red-950 transition hover:bg-red-200 dark:bg-red-400/20 dark:text-red-50">
+            Supporter βを見る
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -339,15 +355,17 @@ export function TsumuguWorkspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const isPro = plan === "pro";
-  const canUseMode = mode !== "作成する" || isPro;
+  const activePlanConfig = plan === "guest" ? null : getPlanConfig(plan);
+  const isPaid = plan !== "guest" && plan !== "free";
+  const canUseHighQuality = plan === "pro" || plan === "supporter";
+  const canUseMode = mode !== "作成する" || Boolean(activePlanConfig?.canCreate);
   const targetLength =
     mode === "作成する"
       ? lengthPreset === "自由入力"
         ? customLength
         : lengthPreset
       : null;
-  const canSubmit = text.trim().length > 0 && !isLoading && canUseMode;
+  const canSubmit = text.trim().length > 0 && !isLoading && canUseMode && Boolean(user);
   const currentExample =
     exampleTexts[purpose] ??
     "今日は課題をやりました。\n途中で難しいと感じました。\n調べながら進めることで理解できました。\n次回はもっと早めに取り組みたいです。";
@@ -372,7 +390,10 @@ export function TsumuguWorkspace() {
       .eq("id", currentUser.id)
       .maybeSingle();
 
-    setPlan(profile?.plan === "pro" ? "pro" : "free");
+    const nextPlan = ["student", "pro", "supporter"].includes(String(profile?.plan))
+      ? (profile?.plan as BillingPlan)
+      : "free";
+    setPlan(nextPlan);
 
     const { data: cloudSettings } = await supabase
       .from("tsumugu_settings")
@@ -404,7 +425,7 @@ export function TsumuguWorkspace() {
       .from("tsumugu_histories")
       .select("*, tsumugu_favorites(id)")
       .order("created_at", { ascending: false })
-      .limit(isPro ? 100 : 30);
+      .limit(nextPlan === "free" ? 10 : 100);
 
     if (histories) {
       setHistory(
@@ -424,7 +445,7 @@ export function TsumuguWorkspace() {
         }))
       );
     }
-  }, [isPro, supabase]);
+  }, [supabase]);
 
   useEffect(() => {
     const savedHistory = window.localStorage.getItem(historyKey);
@@ -557,7 +578,7 @@ export function TsumuguWorkspace() {
           polishAdjustments: selectedAdjustments,
           targetLength,
           reduceAiTone,
-          highQuality: highQuality && isPro,
+          highQuality: highQuality && canUseHighQuality,
           model: settings.model
         })
       });
@@ -585,7 +606,7 @@ export function TsumuguWorkspace() {
         createdAt: new Date().toISOString()
       };
 
-      setHistory((items) => [item, ...items].slice(0, isPro ? 100 : 30));
+      setHistory((items) => [item, ...items].slice(0, isPaid ? 100 : 10));
       if (user) void loadCloudData(user);
     } catch (currentError) {
       if (
@@ -624,6 +645,16 @@ export function TsumuguWorkspace() {
   }
 
   async function toggleFavorite(item: HistoryItem) {
+    const favoriteCount = history.filter((current) => current.favorite).length;
+    if (!item.favorite && plan === "free" && favoriteCount >= 10) {
+      setError({
+        title: "お気に入りの上限に達しました",
+        message: "Freeプランではお気に入りは10件まで保存できます。",
+        action: "Student以上ではお気に入りを無制限に保存できます。"
+      });
+      return;
+    }
+
     if (!supabase || !user || !item.cloudId) {
       setHistory((items) =>
         items.map((current) =>
@@ -669,10 +700,10 @@ export function TsumuguWorkspace() {
   }
 
   async function askConsultation(question = consultQuestion) {
-    if (!isPro) {
+    if (!activePlanConfig?.canConsult) {
       setError({
-        title: "AI相談はProプランの機能です",
-        message: "整形結果について相談するにはProプランが必要です。",
+        title: "AI相談は有料プランの機能です",
+        message: "整形結果について相談するにはStudent以上のプランが必要です。",
         action: "無料プランでは、整える・書き直すをそのまま利用できます。"
       });
       return;
@@ -770,12 +801,12 @@ export function TsumuguWorkspace() {
     printWindow.document.close();
   }
 
-  async function startCheckout() {
+  async function startCheckout(nextPlan: Exclude<BillingPlan, "free"> = "pro") {
     const session = supabase ? (await supabase.auth.getSession()).data.session : null;
     if (!session?.access_token) {
       setError({
         title: "ログインが必要です",
-        message: "Proプランの登録にはGoogleログインが必要です。",
+        message: "プラン登録にはGoogleログインが必要です。",
         action: "画面右上のGoogleログインから続行してください。"
       });
       return;
@@ -783,7 +814,11 @@ export function TsumuguWorkspace() {
 
     const response = await fetch("/api/billing/checkout", {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` }
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ plan: nextPlan })
     });
     const data = (await response.json()) as { url?: string; error?: string };
     if (!response.ok || !data.url) {
@@ -812,7 +847,7 @@ export function TsumuguWorkspace() {
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-300">
-              {user ? `${plan === "pro" ? "Pro" : "Free"} / ${user.email}` : "Guest"}
+              {user ? `${plan === "guest" ? "Guest" : getPlanConfig(plan).name} / ${user.email}` : "Guest"}
             </span>
             {usage ? (
               <span className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-300">
@@ -862,7 +897,7 @@ export function TsumuguWorkspace() {
           <div className="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label="作業モード">
             {modeCards.map((card) => {
               const active = mode === card.mode;
-              const locked = card.access === "pro" && !isPro;
+              const locked = card.access === "paid" && !activePlanConfig?.canCreate;
               return (
                 <button
                   key={card.mode}
@@ -880,7 +915,7 @@ export function TsumuguWorkspace() {
                   <span aria-hidden="true" className="text-2xl">{card.icon}</span>
                   <span className="mt-4 block text-lg font-semibold">
                     {card.title}
-                    {locked ? <span className="ml-2 text-xs opacity-70">Pro</span> : null}
+                    {locked ? <span className="ml-2 text-xs opacity-70">Student+</span> : null}
                   </span>
                   <span className="mt-1 block text-sm font-medium opacity-75">
                     {card.subtitle}
@@ -894,13 +929,25 @@ export function TsumuguWorkspace() {
           </div>
           {!canUseMode ? (
             <div className="rounded-[10px] border border-sky-100 bg-sky-50 p-4 text-sm leading-7 text-sky-950 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
-              「作成する」、文字数指定、AI相談、TSUMUGU Score、高品質モードはProプランで利用できます。
+              「作成する」、文字数指定、AI相談、TSUMUGU ScoreはStudent以上で利用できます。高品質モードはPro以上の特典です。
               <button
                 type="button"
-                onClick={() => void startCheckout()}
+                onClick={() => void startCheckout("student")}
                 className="ml-3 rounded-full bg-sky-200 px-3 py-1 text-xs font-semibold text-sky-950 transition hover:bg-sky-300"
               >
-                Proを見る
+                料金を見る
+              </button>
+            </div>
+          ) : null}
+          {!user ? (
+            <div className="rounded-[10px] border border-zinc-200 bg-white/80 p-4 text-sm leading-7 text-zinc-700 dark:border-zinc-800 dark:bg-white/5 dark:text-zinc-200">
+              TSUMUGU β版ではOpenAI API保護のためログインが必要です。Freeプランは1日10回まで無料で使えます。
+              <button
+                type="button"
+                onClick={() => void signInWithGoogle()}
+                className="ml-3 rounded-full bg-zinc-950 px-3 py-1 text-xs font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-950"
+              >
+                Googleでログイン
               </button>
             </div>
           ) : null}
@@ -982,6 +1029,19 @@ export function TsumuguWorkspace() {
                 </div>
               </section>
             ) : null}
+
+            <aside
+              aria-label="スポンサー枠"
+              className="rounded-[10px] border border-dashed border-zinc-300 bg-white/60 p-5 text-sm leading-7 text-zinc-600 shadow-sm backdrop-blur-xl dark:border-zinc-700 dark:bg-white/5 dark:text-zinc-300"
+            >
+              <p className="text-xs font-semibold text-zinc-500">β版広告枠</p>
+              <p className="mt-2 font-semibold text-zinc-900 dark:text-zinc-100">
+                スポンサー募集中
+              </p>
+              <p className="mt-1">
+                正式版までは広告を表示しません。0→1 Labのサービス紹介や、将来のAdSense枠として使える余白です。
+              </p>
+            </aside>
           </div>
 
           <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
@@ -1118,13 +1178,13 @@ export function TsumuguWorkspace() {
                   <span>
                     <span className="block text-sm font-semibold">高品質モード</span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {isPro ? "Pro特典です" : "Proで利用できます"}
+                      {canUseHighQuality ? "Pro / Supporter特典です" : "Pro以上で利用できます"}
                     </span>
                   </span>
                   <input
                     type="checkbox"
-                    checked={highQuality && isPro}
-                    disabled={!isPro}
+                    checked={highQuality && canUseHighQuality}
+                    disabled={!canUseHighQuality}
                     onChange={(event) => setHighQuality(event.target.checked)}
                     className="h-5 w-5 accent-sky-500 disabled:opacity-40"
                   />
@@ -1192,7 +1252,7 @@ export function TsumuguWorkspace() {
               </section>
             ) : null}
 
-            {score && isPro ? (
+            {score && activePlanConfig?.canUseScore ? (
               <section className="rounded-[10px] border border-white/80 bg-white/76 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/10 sm:p-6">
                 <h2 className="mb-3 text-sm font-semibold">TSUMUGU Score</h2>
                 <div className="grid gap-3 md:grid-cols-[0.5fr_1fr]">
@@ -1220,9 +1280,9 @@ export function TsumuguWorkspace() {
             {result ? (
               <section className="rounded-[10px] border border-white/80 bg-white/76 p-4 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/10 sm:p-6">
                 <h2 className="text-sm font-semibold">AIライティング相談</h2>
-                {!isPro ? (
+                {!activePlanConfig?.canConsult ? (
                   <p className="mt-2 text-sm leading-7 text-zinc-500 dark:text-zinc-400">
-                    AI相談はProプランで利用できます。
+                    AI相談はStudent以上のプランで利用できます。
                   </p>
                 ) : (
                   <>

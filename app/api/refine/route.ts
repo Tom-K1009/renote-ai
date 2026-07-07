@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import {
   assistantModes,
   modelOptions,
@@ -21,9 +22,12 @@ import {
   createSupabaseAdminClient,
   createSupabaseUserClient
 } from "../../lib/supabase/server";
+import { getPlanConfig, normalizePlan, type BillingPlan } from "../../lib/plans";
 
 const maxInputLength = 12000;
-const freeDailyLimit = 10;
+const burstWindowMinutes = 1;
+const burstRequestLimit = 12;
+const ipBurstRequestLimit = 30;
 
 function isOneOf<T extends readonly string[]>(
   options: T,
@@ -204,14 +208,20 @@ function buildPrompt(payload: RefineRequest, includeScore: boolean) {
 
 async function getUsageStatus(accessToken: string | null): Promise<{
   userId: string | null;
+  email: string | null;
+  plan: BillingPlan;
   usage: UsageStatus;
   blocked: boolean;
+  blockedReason?: string;
 }> {
   if (!accessToken) {
     return {
       userId: null,
+      email: null,
+      plan: "free",
       usage: { plan: "guest", usedToday: 0, dailyLimit: null, remaining: null },
-      blocked: false
+      blocked: true,
+      blockedReason: "ログインが必要です。Googleログイン後に利用できます。"
     };
   }
 
@@ -221,8 +231,11 @@ async function getUsageStatus(accessToken: string | null): Promise<{
   if (!userClient || !adminClient) {
     return {
       userId: null,
+      email: null,
+      plan: "free",
       usage: { plan: "guest", usedToday: 0, dailyLimit: null, remaining: null },
-      blocked: false
+      blocked: true,
+      blockedReason: "Supabaseのサーバー設定が未完了です。"
     };
   }
 
@@ -233,8 +246,11 @@ async function getUsageStatus(accessToken: string | null): Promise<{
   if (!user) {
     return {
       userId: null,
+      email: null,
+      plan: "free",
       usage: { plan: "guest", usedToday: 0, dailyLimit: null, remaining: null },
-      blocked: false
+      blocked: true,
+      blockedReason: "ログインが必要です。Googleログイン後に利用できます。"
     };
   }
 
@@ -247,11 +263,31 @@ async function getUsageStatus(accessToken: string | null): Promise<{
 
   const { data: profile } = await adminClient
     .from("profiles")
-    .select("plan")
+    .select("plan, is_suspended, suspended_reason")
     .eq("id", user.id)
     .single();
 
-  const plan = profile?.plan === "pro" ? "pro" : "free";
+  const plan = normalizePlan(profile?.plan);
+  const config = getPlanConfig(plan);
+  if (profile?.is_suspended) {
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      plan,
+      usage: {
+        plan,
+        usedToday: 0,
+        dailyLimit: config.dailyLimit,
+        remaining: 0,
+        softLimit: config.softLimit
+      },
+      blocked: true,
+      blockedReason:
+        profile.suspended_reason ??
+        "異常利用を検知したため、一時的に利用を停止しています。"
+    };
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const { data: usageRow } = await adminClient
     .from("tsumugu_usage")
@@ -261,14 +297,96 @@ async function getUsageStatus(accessToken: string | null): Promise<{
     .maybeSingle();
 
   const usedToday = usageRow?.count ?? 0;
-  const dailyLimit = plan === "pro" ? null : freeDailyLimit;
+  const dailyLimit = config.dailyLimit;
   const remaining = dailyLimit === null ? null : Math.max(0, dailyLimit - usedToday);
+  const burstSince = new Date(Date.now() - burstWindowMinutes * 60 * 1000).toISOString();
+  const { count: burstCount } = await adminClient
+    .from("tsumugu_api_events")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .gte("created_at", burstSince);
+
+  if ((burstCount ?? 0) >= burstRequestLimit) {
+    return {
+      userId: user.id,
+      email: user.email ?? null,
+      plan,
+      usage: { plan, usedToday, dailyLimit, remaining, softLimit: config.softLimit },
+      blocked: true,
+      blockedReason:
+        "短時間にアクセスが集中しています。少し時間をおいて再度お試しください。"
+    };
+  }
+
+  if (usedToday >= dailyLimit * 2) {
+    await adminClient
+      .from("profiles")
+      .update({
+        is_suspended: true,
+        suspended_reason: "利用回数が通常範囲を大きく超えたため自動停止しました。"
+      })
+      .eq("id", user.id);
+  }
 
   return {
     userId: user.id,
-    usage: { plan, usedToday, dailyLimit, remaining },
-    blocked: plan === "free" && usedToday >= freeDailyLimit
+    email: user.email ?? null,
+    plan,
+    usage: { plan, usedToday, dailyLimit, remaining, softLimit: config.softLimit },
+    blocked: !config.softLimit && usedToday >= dailyLimit
   };
+}
+
+function hashIp(request: Request) {
+  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
+  const realIp = request.headers.get("x-real-ip") ?? "";
+  const source = forwardedFor.split(",")[0]?.trim() || realIp || "unknown";
+  return createHash("sha256").update(source).digest("hex").slice(0, 32);
+}
+
+function estimateTokens(input: string, output: string) {
+  return Math.ceil((input.length + output.length) / 2);
+}
+
+function estimateCostJpy(tokens: number, highQuality: boolean) {
+  const yenPerThousandTokens = highQuality ? 1.8 : 0.35;
+  return Number(((tokens / 1000) * yenPerThousandTokens).toFixed(4));
+}
+
+async function logApiEvent(params: {
+  request: Request;
+  userId: string | null;
+  plan: BillingPlan;
+  payload?: Partial<RefineRequest>;
+  inputChars?: number;
+  outputChars?: number;
+  estimatedTokens?: number;
+  estimatedCostJpy?: number;
+  responseMs?: number;
+  status: "success" | "blocked" | "error";
+  errorCode?: string;
+}) {
+  const adminClient = createSupabaseAdminClient();
+  if (!adminClient) return;
+
+  await adminClient.from("tsumugu_api_events").insert({
+    user_id: params.userId,
+    plan: params.plan,
+    endpoint: "/api/refine",
+    mode: params.payload?.mode,
+    purpose: params.payload?.purpose,
+    writing_style: params.payload?.writingStyle,
+    target_length: params.payload?.targetLength ?? null,
+    input_chars: params.inputChars ?? 0,
+    output_chars: params.outputChars ?? 0,
+    estimated_tokens: params.estimatedTokens ?? 0,
+    estimated_cost_jpy: params.estimatedCostJpy ?? 0,
+    response_ms: params.responseMs,
+    status: params.status,
+    error_code: params.errorCode,
+    ip_hash: hashIp(params.request),
+    user_agent: params.request.headers.get("user-agent")
+  });
 }
 
 async function persistResult(params: {
@@ -278,6 +396,7 @@ async function persistResult(params: {
   result: string;
   improvements: ImprovementReport[];
   score: TsumuguScore | null;
+  plan: BillingPlan;
 }) {
   if (!params.userId) return;
 
@@ -288,7 +407,8 @@ async function persistResult(params: {
 
   await adminClient.rpc("increment_tsumugu_usage", {
     target_user_id: params.userId,
-    target_day: today
+    target_day: today,
+    target_plan: params.plan
   });
 
   await adminClient.from("tsumugu_histories").insert({
@@ -307,6 +427,10 @@ async function persistResult(params: {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  let usageState: Awaited<ReturnType<typeof getUsageStatus>> | null = null;
+  let payloadForLog: Partial<RefineRequest> | undefined;
+  let inputCharsForLog = 0;
   try {
     const body = (await request.json()) as Partial<RefineRequest>;
     const mode = isOneOf(assistantModes, body.mode) ? body.mode : null;
@@ -363,30 +487,79 @@ export async function POST(request: Request) {
 
     const accessToken =
       request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-    const usageState = await getUsageStatus(accessToken);
-    const isPro = usageState.usage.plan === "pro";
+    usageState = await getUsageStatus(accessToken);
+    const adminClient = createSupabaseAdminClient();
+    const currentIpHash = hashIp(request);
+
+    if (adminClient) {
+      const ipBurstSince = new Date(
+        Date.now() - burstWindowMinutes * 60 * 1000
+      ).toISOString();
+      const { count: ipBurstCount } = await adminClient
+        .from("tsumugu_api_events")
+        .select("id", { count: "exact", head: true })
+        .eq("ip_hash", currentIpHash)
+        .gte("created_at", ipBurstSince);
+
+      if ((ipBurstCount ?? 0) >= ipBurstRequestLimit) {
+        await logApiEvent({
+          request,
+          userId: usageState.userId,
+          plan: usageState.plan,
+          payload: { mode, purpose, writingStyle },
+          inputChars: text.length,
+          responseMs: Date.now() - startedAt,
+          status: "blocked",
+          errorCode: "ip_rate_limited"
+        });
+        return NextResponse.json(
+          {
+            error:
+              "短時間にアクセスが集中しています。時間をおいて再度お試しください。",
+            usage: usageState.usage
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    const config = getPlanConfig(usageState.plan);
+    const isPaid = usageState.plan !== "free";
+    const canUseHighQuality = config.canUseHighQuality;
 
     if (usageState.blocked) {
+      await logApiEvent({
+        request,
+        userId: usageState.userId,
+        plan: usageState.plan,
+        payload: { mode, purpose, writingStyle },
+        inputChars: text.length,
+        responseMs: Date.now() - startedAt,
+        status: "blocked",
+        errorCode: "usage_blocked"
+      });
       return NextResponse.json(
         {
-          error: "無料プランの本日分10回を使い切りました。Proプランでは無制限に利用できます。",
+          error:
+            usageState.blockedReason ??
+            "本日の利用回数に達しました。StudentまたはProでさらに利用できます。",
           usage: usageState.usage
         },
-        { status: 402 }
+        { status: usageState.userId ? 402 : 401 }
       );
     }
 
-    if (mode === "作成する" && !isPro) {
+    if (mode === "作成する" && !config.canCreate) {
       return NextResponse.json(
         {
-          error: "「作成する」と文字数指定はProプランで利用できます。",
+          error: "「作成する」と文字数指定はStudent以上のプランで利用できます。",
           usage: usageState.usage
         },
         { status: 403 }
       );
     }
 
-    const includeScore = isPro;
+    const includeScore = config.canUseScore;
     const payload: RefineRequest = {
       mode,
       text,
@@ -396,9 +569,11 @@ export async function POST(request: Request) {
       polishAdjustments: selectedAdjustments,
       targetLength: resolveTargetLength(mode, body.targetLength),
       reduceAiTone,
-      highQuality: highQuality && isPro,
+      highQuality: highQuality && canUseHighQuality,
       model: resolveModel(body.model)
     };
+    payloadForLog = payload;
+    inputCharsForLog = text.length;
 
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await client.responses.create({
@@ -420,17 +595,38 @@ export async function POST(request: Request) {
     }
 
     const parsed = parseModelOutput(raw, includeScore);
+    const outputChars = parsed.result.length;
+    const estimatedTokens = estimateTokens(text, parsed.result);
+    const estimatedCostJpy = estimateCostJpy(
+      estimatedTokens,
+      Boolean(payload.highQuality)
+    );
+
     await persistResult({
       userId: usageState.userId,
       text,
       payload,
       result: parsed.result,
       improvements: parsed.improvements,
-      score: parsed.score
+      score: parsed.score,
+      plan: usageState.plan
+    });
+
+    await logApiEvent({
+      request,
+      userId: usageState.userId,
+      plan: usageState.plan,
+      payload,
+      inputChars: text.length,
+      outputChars,
+      estimatedTokens,
+      estimatedCostJpy,
+      responseMs: Date.now() - startedAt,
+      status: "success"
     });
 
     const nextUsage: UsageStatus =
-      usageState.usage.plan === "free"
+      usageState.usage.dailyLimit !== null
         ? {
             ...usageState.usage,
             usedToday: usageState.usage.usedToday + 1,
@@ -449,8 +645,19 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error(error);
+    await logApiEvent({
+      request,
+      userId: usageState?.userId ?? null,
+      plan: usageState?.plan ?? "free",
+      payload: payloadForLog,
+      inputChars: inputCharsForLog,
+      responseMs: Date.now() - startedAt,
+      status: "error",
+      errorCode:
+        error instanceof Error ? error.name || "openai_error" : "unknown_error"
+    });
     return NextResponse.json(
-      { error: "エラーが発生しました。時間をおいて再度お試しください。" },
+      { error: "現在AIが混み合っています。時間をおいて再度お試しください。" },
       { status: 500 }
     );
   }

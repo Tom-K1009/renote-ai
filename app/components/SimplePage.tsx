@@ -41,10 +41,6 @@ export function SimplePage({
         <div className="mt-10 max-w-3xl space-y-5 rounded-[10px] border border-zinc-200 bg-white/80 p-6 text-base leading-8 text-zinc-700 shadow-sm dark:border-zinc-800 dark:bg-white/5 dark:text-zinc-200">
           {children}
         </div>
-        <footer className="mt-12 text-xs text-zinc-500">
-          <p>TSUMUGU is a 0→1 Lab product.</p>
-          <p className="mt-1">© 2026 0→1 Lab. All rights reserved.</p>
-        </footer>
       </section>
     </main>
   );

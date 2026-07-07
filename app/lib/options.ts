@@ -91,10 +91,11 @@ export type TsumuguScore = {
 };
 
 export type UsageStatus = {
-  plan: "free" | "pro" | "guest";
+  plan: "free" | "student" | "pro" | "supporter" | "guest";
   usedToday: number;
   dailyLimit: number | null;
   remaining: number | null;
+  softLimit?: boolean;
 };
 
 export type RefineResponse = {
