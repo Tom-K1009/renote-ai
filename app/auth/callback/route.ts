@@ -14,11 +14,26 @@ function createAuthErrorRedirect(
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const oauthError = requestUrl.searchParams.get("error");
+  const oauthErrorCode = requestUrl.searchParams.get("error_code");
+  const oauthErrorDescription = requestUrl.searchParams.get("error_description");
   const next = requestUrl.searchParams.get("next") ?? "/app";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? requestUrl.origin;
   const redirectOrigin = new URL(siteUrl).origin;
   const safeNext = next.startsWith("/") ? next : "/app";
   const successUrl = new URL(safeNext, redirectOrigin);
+
+  if (oauthError) {
+    console.error("[auth/callback] OAuth provider returned error", {
+      error: oauthError,
+      error_code: oauthErrorCode,
+      error_description: oauthErrorDescription
+    });
+    return createAuthErrorRedirect(
+      redirectOrigin,
+      oauthErrorDescription || oauthErrorCode || oauthError
+    );
+  }
 
   if (!code) {
     console.error("[auth/callback] Missing code parameter", {
