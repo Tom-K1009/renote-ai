@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #fafafa;
+}
+
+:root.dark {
+  color-scheme: dark;
+  background: #09090b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family: Arial, "Hiragino Sans", "Yu Gothic", "YuGothic", Meiryo, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(113, 113, 122, 0.35);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: #ffffff;
+  background: #18181b;
+}
+
+@layer components {
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+    background: rgb(228 228 231);
+  }
+
+  .shimmer::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+    animation: shimmer 1.35s infinite;
+  }
+
+  .tool-button {
+    min-height: 2.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(228 228 231);
+    background: rgba(255, 255, 255, 0.78);
+    padding: 0 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgb(63 63 70);
+    transition:
+      transform 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
+  }
+
+  .tool-button:hover:not(:disabled) {
+    border-color: rgb(113 113 122);
+    background: #ffffff;
+    color: rgb(24 24 27);
+  }
+
+  .tool-button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .tool-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+  }
+
+  .history-button {
+    min-height: 2.25rem;
+    flex: 1;
+    border-radius: 9999px;
+    border: 1px solid rgb(228 228 231);
+    background: rgba(250, 250, 250, 0.8);
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(63 63 70);
+    transition:
+      transform 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .history-button:hover {
+    border-color: rgb(161 161 170);
+    background: #ffffff;
+  }
+
+  .history-button:active {
+    transform: scale(0.98);
+  }
+
+  .dark .tool-button,
+  .dark .history-button {
+    border-color: rgb(39 39 42);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgb(244 244 245);
+  }
+
+  .dark .tool-button:hover:not(:disabled),
+  .dark .history-button:hover {
+    border-color: rgb(82 82 91);
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  .dark .shimmer {
+    background: rgb(39 39 42);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
