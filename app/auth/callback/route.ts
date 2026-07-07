@@ -1,43 +1,61 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+function createAuthErrorRedirect(
+  redirectOrigin: string,
+  message = "auth"
+) {
+  const redirectUrl = new URL("/login", redirectOrigin);
+  redirectUrl.searchParams.set("error", "auth");
+  redirectUrl.searchParams.set("message", message);
+  return NextResponse.redirect(redirectUrl);
+}
+
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = requestUrl.searchParams.get("next") ?? "/app";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? requestUrl.origin;
   const redirectOrigin = new URL(siteUrl).origin;
+  const safeNext = next.startsWith("/") ? next : "/app";
+  const successUrl = new URL(safeNext, redirectOrigin);
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
+    console.error("[auth/callback] Missing code parameter", {
+      callbackUrl: requestUrl.origin + requestUrl.pathname
+    });
+    return createAuthErrorRedirect(redirectOrigin, "missing_code");
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
+    console.error("[auth/callback] Missing Supabase environment variables", {
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasSupabaseAnonKey: Boolean(supabaseAnonKey)
+    });
+    return createAuthErrorRedirect(redirectOrigin, "missing_supabase_env");
   }
 
-  const cookieStore = await cookies();
+  const response = NextResponse.redirect(successUrl);
   const supabase = createServerClient(
     supabaseUrl,
     supabaseAnonKey,
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return request.cookies.getAll();
         },
         setAll(
           cookiesToSet: {
             name: string;
             value: string;
-            options: Parameters<typeof cookieStore.set>[2];
+            options: Parameters<typeof response.cookies.set>[2];
           }[]
         ) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            response.cookies.set(name, value, options);
           });
         }
       }
@@ -47,9 +65,16 @@ export async function GET(request: Request) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return NextResponse.redirect(new URL("/login?error=auth", redirectOrigin));
+    console.error("[auth/callback] exchangeCodeForSession failed", {
+      message: error.message,
+      name: error.name,
+      status: error.status
+    });
+    return createAuthErrorRedirect(
+      redirectOrigin,
+      error.message || "exchange_failed"
+    );
   }
 
-  const safeNext = next.startsWith("/") ? next : "/app";
-  return NextResponse.redirect(new URL(safeNext, redirectOrigin));
+  return response;
 }
