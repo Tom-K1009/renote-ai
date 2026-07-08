@@ -35,7 +35,7 @@ import {
 import { createSupabaseBrowserClient } from "../lib/supabase/browser";
 import { getPlanConfig, type BillingPlan } from "../lib/plans";
 
-type Theme = "light" | "dark";
+type Theme = "light" | "dark" | "system";
 type Plan = "guest" | BillingPlan;
 
 type HistoryItem = {
@@ -71,7 +71,7 @@ const defaultSettings: Settings = {
   defaultWritingStyle: "です・ます調",
   defaultLength: 400,
   customLength: 400,
-  theme: "light",
+  theme: "system",
   model: "gpt-4.1-mini"
 };
 
@@ -134,9 +134,28 @@ const exampleTexts: Partial<Record<Purpose, string>> = {
 const historyKey = "tsumugu-history";
 const settingsKey = "tsumugu-settings";
 const onboardingKey = "tsumugu-onboarding-seen";
+const themeOptions: { value: Theme; label: string }[] = [
+  { value: "light", label: "ライト" },
+  { value: "dark", label: "ダーク" },
+  { value: "system", label: "システム" }
+];
+
+function getSystemTheme() {
+  if (typeof window === "undefined") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function resolveTheme(theme: Theme) {
+  return theme === "system" ? getSystemTheme() : theme;
+}
 
 function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle("dark", theme === "dark");
+  const resolvedTheme = resolveTheme(theme);
+  document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+  document.documentElement.dataset.theme = resolvedTheme;
+  document.documentElement.style.colorScheme = resolvedTheme;
 }
 
 function countText(text: string) {
@@ -353,6 +372,7 @@ export function TsumuguWorkspace() {
   const [historySearch, setHistorySearch] = useState("");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const activePlanConfig = plan === "guest" ? null : getPlanConfig(plan);
@@ -410,7 +430,9 @@ export function TsumuguWorkspace() {
             ? "自由入力"
             : (Number(cloudSettings.default_length) as LengthPreset),
         customLength: cloudSettings.custom_length ?? 400,
-        theme: cloudSettings.theme === "dark" ? "dark" : "light",
+        theme: ["light", "dark", "system"].includes(String(cloudSettings.theme))
+          ? (cloudSettings.theme as Theme)
+          : "system",
         model: (cloudSettings.model ?? "gpt-4.1-mini") as ModelOption
       };
       setSettings(nextSettings);
@@ -459,12 +481,16 @@ export function TsumuguWorkspace() {
 
     if (savedSettings) {
       const parsed = { ...defaultSettings, ...JSON.parse(savedSettings) } as Settings;
-      setSettings(parsed);
-      setPurpose(parsed.defaultPurpose);
-      setWritingStyle(parsed.defaultWritingStyle);
-      setLengthPreset(parsed.defaultLength);
-      setCustomLength(parsed.customLength);
-      applyTheme(parsed.theme);
+      const parsedTheme = ["light", "dark", "system"].includes(String(parsed.theme))
+        ? parsed.theme
+        : "system";
+      const safeSettings = { ...parsed, theme: parsedTheme };
+      setSettings(safeSettings);
+      setPurpose(safeSettings.defaultPurpose);
+      setWritingStyle(safeSettings.defaultWritingStyle);
+      setLengthPreset(safeSettings.defaultLength);
+      setCustomLength(safeSettings.customLength);
+      applyTheme(safeSettings.theme);
     } else {
       applyTheme(defaultSettings.theme);
     }
@@ -494,8 +520,20 @@ export function TsumuguWorkspace() {
     applyTheme(settings.theme);
   }, [settings]);
 
+  useEffect(() => {
+    if (settings.theme !== "system") return;
+
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = () => applyTheme("system");
+    media.addEventListener("change", handleChange);
+
+    return () => media.removeEventListener("change", handleChange);
+  }, [settings.theme]);
+
   async function syncSettings(nextSettings: Settings) {
     setSettings(nextSettings);
+    setSettingsSaved(true);
+    window.setTimeout(() => setSettingsSaved(false), 1600);
     if (!supabase || !user) return;
 
     await supabase.from("tsumugu_settings").upsert({
@@ -857,6 +895,12 @@ export function TsumuguWorkspace() {
                 {usage.dailyLimit ? `残り${usage.remaining}回` : "無制限"}
               </span>
             ) : null}
+            <Link
+              href="/pricing"
+              className="min-h-11 rounded-full border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm font-medium text-sky-800 shadow-sm transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98] dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100 dark:hover:bg-sky-400/15"
+            >
+              料金プラン
+            </Link>
             <button
               type="button"
               onClick={() =>
@@ -989,7 +1033,43 @@ export function TsumuguWorkspace() {
                     初回ガイドを再表示
                   </button>
                 </div>
+                {settingsSaved ? (
+                  <p className="mt-3 rounded-full border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
+                    保存しました
+                  </p>
+                ) : null}
                 <div className="mt-4 space-y-4">
+                  <fieldset className="space-y-2">
+                    <legend className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                      テーマ
+                    </legend>
+                    <div className="flex flex-wrap gap-2">
+                      {themeOptions.map((option) => {
+                        const active = settings.theme === option.value;
+
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() =>
+                              void syncSettings({
+                                ...settings,
+                                theme: option.value
+                              })
+                            }
+                            className={`min-h-9 rounded-full border px-3 text-xs font-medium transition active:scale-[0.98] ${
+                              active
+                                ? "border-zinc-950 bg-zinc-950 text-white shadow-sm dark:border-white dark:bg-white dark:text-zinc-950"
+                                : "border-zinc-200 bg-white/70 text-zinc-700 hover:border-zinc-400 hover:bg-white dark:border-zinc-800 dark:bg-white/5 dark:text-zinc-200 dark:hover:border-zinc-600"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
                   <OptionGroup
                     label="デフォルト用途"
                     options={purposeOptions}
@@ -1010,6 +1090,31 @@ export function TsumuguWorkspace() {
                     }}
                     compact
                   />
+                  <OptionGroup
+                    label="デフォルト文字数"
+                    options={lengthPresets}
+                    value={settings.defaultLength}
+                    onChange={(value) => {
+                      setLengthPreset(value);
+                      void syncSettings({ ...settings, defaultLength: value });
+                    }}
+                    compact
+                  />
+                  <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    自由入力の文字数
+                    <input
+                      type="number"
+                      min={40}
+                      max={4000}
+                      value={settings.customLength}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        setCustomLength(value);
+                        void syncSettings({ ...settings, customLength: value });
+                      }}
+                      className="mt-2 min-h-11 w-full rounded-[8px] border border-zinc-200 bg-white px-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
+                    />
+                  </label>
                   <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     AIモデル
                     <select
