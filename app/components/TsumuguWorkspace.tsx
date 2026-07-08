@@ -139,6 +139,13 @@ const themeOptions: { value: Theme; label: string }[] = [
   { value: "dark", label: "ダーク" },
   { value: "system", label: "システム" }
 ];
+const planDisplayNames: Record<Plan, string> = {
+  guest: "Guest",
+  free: "Free",
+  student: "Student",
+  pro: "Pro",
+  supporter: "Supporter"
+};
 
 function getSystemTheme() {
   if (typeof window === "undefined") return "light";
@@ -373,9 +380,17 @@ export function TsumuguWorkspace() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   const activePlanConfig = plan === "guest" ? null : getPlanConfig(plan);
+  const avatarUrl =
+    typeof user?.user_metadata?.avatar_url === "string"
+      ? user.user_metadata.avatar_url
+      : typeof user?.user_metadata?.picture === "string"
+        ? user.user_metadata.picture
+        : null;
+  const userInitial = (user?.email?.[0] ?? "T").toUpperCase();
   const isPaid = plan !== "guest" && plan !== "free";
   const canUseHighQuality = plan === "pro" || plan === "supporter";
   const canUseMode = mode !== "作成する" || Boolean(activePlanConfig?.canCreate);
@@ -576,6 +591,7 @@ export function TsumuguWorkspace() {
     await supabase.auth.signOut();
     setUser(null);
     setPlan("guest");
+    setProfileMenuOpen(false);
   }
 
   function toggleAdjustment(adjustment: PolishAdjustment) {
@@ -887,9 +903,11 @@ export function TsumuguWorkspace() {
             </p>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-300">
-              {user ? `${plan === "guest" ? "Guest" : getPlanConfig(plan).name} / ${user.email}` : "Guest"}
-            </span>
+            {!user ? (
+              <span className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-300">
+                Guest
+              </span>
+            ) : null}
             {usage ? (
               <span className="rounded-full border border-zinc-200 bg-white/70 px-3 py-2 text-xs font-medium text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-300">
                 {usage.dailyLimit ? `残り${usage.remaining}回` : "無制限"}
@@ -914,9 +932,62 @@ export function TsumuguWorkspace() {
               {settings.theme === "light" ? "Dark" : "Light"}
             </button>
             {user ? (
-              <button type="button" onClick={() => void signOut()} className="min-h-11 rounded-full border border-zinc-200 bg-white/70 px-4 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-white active:scale-[0.98] dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-100">
-                ログアウト
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={profileMenuOpen}
+                  onClick={() => setProfileMenuOpen((open) => !open)}
+                  className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-zinc-200 bg-white/80 text-sm font-semibold text-zinc-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-white active:scale-[0.98] dark:border-zinc-800 dark:bg-white/10 dark:text-zinc-100"
+                >
+                  {avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarUrl}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span>{userInitial}</span>
+                  )}
+                </button>
+                {profileMenuOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-12 z-30 w-72 overflow-hidden rounded-[12px] border border-zinc-200 bg-white/95 p-2 text-sm shadow-[0_24px_80px_rgba(24,24,27,0.16)] backdrop-blur-xl dark:border-zinc-800 dark:bg-zinc-950/95"
+                  >
+                    <div className="px-3 py-3">
+                      <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                        {user.email}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        現在のプラン: {planDisplayNames[plan]}
+                      </p>
+                    </div>
+                    <div className="my-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setSettingsOpen(true);
+                        setProfileMenuOpen(false);
+                      }}
+                      className="flex min-h-11 w-full items-center justify-between rounded-[8px] px-3 text-left text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-white/10"
+                    >
+                      <span>設定</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => void signOut()}
+                      className="flex min-h-11 w-full items-center rounded-[8px] px-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
+                    >
+                      ログアウト
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <button type="button" onClick={() => void signInWithGoogle()} className="min-h-11 rounded-full bg-zinc-950 px-4 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.98] dark:bg-white dark:text-zinc-950">
                 Googleでログイン
